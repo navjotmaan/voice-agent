@@ -1,121 +1,182 @@
 import 'dotenv/config';
 import { WebSocketServer, WebSocket } from 'ws';
-import querystring from 'querystring';
-import { setupGeminiListeners, sendTextMessage } from './gemini.js';
 
-const ASSEMBLY_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const MODEL_NAME = 'gemini-3.1-flash-live-preview';
 
-const MODEL_NAME = "gemini-3.1-flash-live-preview";
-const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`;
-
-const params = { speech_model: "universal-3-5-pro", sample_rate: 16000 };
-const endpoint = `wss://streaming.assemblyai.com/v3/ws?${querystring.stringify(params)}`;
+const WS_URL =
+  `wss://generativelanguage.googleapis.com/ws/` +
+  `google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent` +
+  `?key=${GEMINI_API_KEY}`;
 
 const wss = new WebSocketServer({ port: 5050 });
-const MIN_CHUNK_SIZE = 3200; 
+
+export function setupGeminiListeners(geminiWS, ws) {
+  geminiWS.onmessage = (event) => {
+    const response = JSON.parse(event.data);
+
+    if (response.setupComplete) {
+      console.log('Gemini setup complete');
+      return;
+    }
+
+    if (!response.serverContent) {
+      return;
+    }
+
+    const serverContent = response.serverContent;
+
+    if (serverContent.modelTurn?.parts) {
+      for (const part of serverContent.modelTurn.parts) {
+        if (part.inlineData) {
+          const audioData = part.inlineData.data;
+
+          const audioBuffer = Buffer.from(
+            audioData,
+            'base64'
+          );
+
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(audioBuffer);
+          }
+        }
+      }
+    }
+
+    // if (serverContent.inputTranscription) {
+    //   console.log(
+    //     'User:',
+    //     serverContent.inputTranscription.text
+    //   );
+
+    //   if (ws.readyState === WebSocket.OPEN) {
+    //     ws.send(JSON.stringify({
+    //       type: 'transcript',
+    //       text: serverContent.inputTranscription.text
+    //     }));
+    //   }
+    // }
+
+    // if (serverContent.outputTranscription) {
+    //   console.log(
+    //     'Gemini:',
+    //     serverContent.outputTranscription.text
+    //   );
+    // }
+
+    if (serverContent.interrupted) {
+      console.log('Gemini interrupted');
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'interrupt'
+        }));
+      }
+    }
+
+    if (serverContent.turnComplete) {
+      console.log('Gemini turn complete');
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'turnComplete'
+        }));
+      }
+    }
+  };
+
+  geminiWS.onerror = (error) => {
+    console.error('Gemini WebSocket error:', error);
+  };
+
+  geminiWS.onclose = (event) => {
+    console.log(
+      'Gemini WebSocket closed:',
+      event.code,
+      event.reason?.toString()
+    );
+  };
+}
+
+export function sendAudioChunk(geminiWS, chunk) {
+  if (geminiWS.readyState !== WebSocket.OPEN) {
+    return;
+  }
+
+  const audioMessage = {
+    realtimeInput: {
+      audio: {
+        data: chunk.toString('base64'),
+        mimeType: 'audio/pcm;rate=16000'
+      }
+    }
+  };
+
+  geminiWS.send(JSON.stringify(audioMessage));
+}
 
 wss.on('connection', (ws) => {
-  // console.log('WS connection established....');
+  console.log('Browser connected');
 
-  let audioBuffer = Buffer.alloc(0);
-
-  const assemblyWS = new WebSocket(endpoint, { headers: { Authorization: ASSEMBLY_API_KEY } });
   const geminiWS = new WebSocket(WS_URL);
 
   geminiWS.on('open', () => {
-    // console.log('Gemini webSocket Connected');
-    setupGeminiListeners(geminiWS, ws); 
+    console.log('Gemini connected');
 
     const setupMessage = {
       setup: {
         model: `models/${MODEL_NAME}`,
         generationConfig: {
-          responseModalities: ['AUDIO'],
+          responseModalities: ['AUDIO']
         },
+        inputAudioTranscription: {},
         outputAudioTranscription: {},
         systemInstruction: {
-          parts: [{ text: 'Give precise and to the point response.' }]
+          parts: [
+            {
+              text: 'Give precise and to the point responses.'
+            }
+          ]
         }
-        }
+      }
     };
 
     geminiWS.send(JSON.stringify(setupMessage));
-    // console.log('Configuration sent');
   });
 
-  ws.on("message", (data, isBinary) => {
+  setupGeminiListeners(geminiWS, ws);
+
+  ws.on('message', (data, isBinary) => {
+
     if (!isBinary) {
       try {
         const msg = JSON.parse(data);
 
-        if (msg.action === "stop" && assemblyWS.readyState === WebSocket.OPEN) {
-          // Send any remaining buffered audio before terminating
-          if (audioBuffer.length > 0) {
-            assemblyWS.send(audioBuffer);
-            audioBuffer = Buffer.alloc(0);
-          }
+        if (msg.action === 'stop') {
+          console.log('Stopping');
 
-          assemblyWS.send(JSON.stringify({ type: "Terminate" }));
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "done" }));
-            ws.close();
+          if (geminiWS.readyState === WebSocket.OPEN) {
             geminiWS.close();
           }
+
+          ws.close();
         }
-      } catch (e) {
-        return;
+
+      } catch {
+        // Ignore invalid JSON
       }
+
+      return;
     }
 
-    if (assemblyWS.readyState === WebSocket.OPEN) {
-      // Append incoming frame to our server-side buffer
-      audioBuffer = Buffer.concat([audioBuffer, Buffer.from(data)]);
-
-      // Only send to AssemblyAI when we have accumulated >= 100ms of audio
-      while (audioBuffer.length >= MIN_CHUNK_SIZE) {
-        const chunkToSend = audioBuffer.subarray(0, MIN_CHUNK_SIZE);
-        audioBuffer = audioBuffer.subarray(MIN_CHUNK_SIZE);
-        assemblyWS.send(chunkToSend);
-      }
+    // Browser sent raw PCM
+    if (geminiWS.readyState === WebSocket.OPEN) {
+      sendAudioChunk(geminiWS, Buffer.from(data));
     }
   });
 
-  assemblyWS.on("message", (msg) => {
-    const data = JSON.parse(msg);
-
-    if (data.type === 'Turn') {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          text: data.transcript,
-          end_of_turn: data.end_of_turn,
-        }));
-
-        if (data.end_of_turn && data.transcript?.trim()) {
-          sendTextMessage(geminiWS, data.transcript);
-        }
-      }
-    }
-  });
-
-  assemblyWS.on("error", (error) => {
-    console.error("AssemblyAI WebSocket error:", error);
-  });
-
-  assemblyWS.on("close", () => {
-    console.log("AssemblyAI WebSocket closed");
-  });
-
-  ws.on("close", () => {
-    console.log("Client WebSocket closed");
-
-    if (assemblyWS.readyState === WebSocket.OPEN) {
-      assemblyWS.send(
-        JSON.stringify({
-          type: "Terminate",
-        })
-      );
-    }
+  ws.on('close', () => {
+    console.log('Browser disconnected');
 
     if (geminiWS.readyState === WebSocket.OPEN) {
       geminiWS.close();

@@ -61,6 +61,11 @@ export default function VoiceAgent() {
       if (typeof event.data === "string") {
         const message = JSON.parse(event.data);
 
+        if (message.type === "interrupt") {
+          player.current?.interrupt();
+          return;
+        }
+
         if (message.type === "done") {
           // setPartialText("");
           return;
@@ -86,7 +91,7 @@ export default function VoiceAgent() {
     socket.current.onclose = () => console.log("Websocket closed");
   };
 
-  const endSession = () => {
+  async function endSession() {
     // 1. Stop all tracks in the MediaStream (turns off microphone hardware/indicator)
     if (stream.current) {
       stream.current.getTracks().forEach((track) => track.stop());
@@ -104,6 +109,12 @@ export default function VoiceAgent() {
     if (audioContext.current && audioContext.current.state !== 'closed') {
       audioContext.current.close();
       audioContext.current = null;
+    }
+
+    // 4. STOP GEMINI AUDIO IMMEDIATELY
+    if (player.current) {
+      await player.current.close();
+      player.current = null;
     }
 
     if (socket.current?.readyState === WebSocket.OPEN) {
