@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { WebSocketServer, WebSocket } from 'ws';
+import { setupGeminiListeners, sendAudioChunk } from './gemini.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const MODEL_NAME = 'gemini-3.1-flash-live-preview';
@@ -11,109 +12,23 @@ const WS_URL =
 
 const wss = new WebSocketServer({ port: 5050 });
 
-export function setupGeminiListeners(geminiWS, ws) {
-  geminiWS.onmessage = (event) => {
-    const response = JSON.parse(event.data);
-
-    if (response.setupComplete) {
-      console.log('Gemini setup complete');
-      return;
-    }
-
-    if (!response.serverContent) {
-      return;
-    }
-
-    const serverContent = response.serverContent;
-
-    if (serverContent.modelTurn?.parts) {
-      for (const part of serverContent.modelTurn.parts) {
-        if (part.inlineData) {
-          const audioData = part.inlineData.data;
-
-          const audioBuffer = Buffer.from(
-            audioData,
-            'base64'
-          );
-
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(audioBuffer);
-          }
-        }
+// Define a function declaration
+const searchUserMemory = {
+  name: "search_user_memory",
+  description:
+    "Search the user's personal knowledge base for information about their goals, skills, projects, preferences, experiences, and other personal context. Use this whenever answering a question that requires specific knowledge about the user.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      query: {
+        type: "STRING",
+        description:
+          "A concise semantic search query describing the information needed from the user's memory."
       }
-    }
-
-    // if (serverContent.inputTranscription) {
-    //   console.log(
-    //     'User:',
-    //     serverContent.inputTranscription.text
-    //   );
-
-    //   if (ws.readyState === WebSocket.OPEN) {
-    //     ws.send(JSON.stringify({
-    //       type: 'transcript',
-    //       text: serverContent.inputTranscription.text
-    //     }));
-    //   }
-    // }
-
-    // if (serverContent.outputTranscription) {
-    //   console.log(
-    //     'Gemini:',
-    //     serverContent.outputTranscription.text
-    //   );
-    // }
-
-    if (serverContent.interrupted) {
-      console.log('Gemini interrupted');
-
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'interrupt'
-        }));
-      }
-    }
-
-    if (serverContent.turnComplete) {
-      console.log('Gemini turn complete');
-
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'turnComplete'
-        }));
-      }
-    }
-  };
-
-  geminiWS.onerror = (error) => {
-    console.error('Gemini WebSocket error:', error);
-  };
-
-  geminiWS.onclose = (event) => {
-    console.log(
-      'Gemini WebSocket closed:',
-      event.code,
-      event.reason?.toString()
-    );
-  };
-}
-
-export function sendAudioChunk(geminiWS, chunk) {
-  if (geminiWS.readyState !== WebSocket.OPEN) {
-    return;
+    },
+    required: ["query"]
   }
-
-  const audioMessage = {
-    realtimeInput: {
-      audio: {
-        data: chunk.toString('base64'),
-        mimeType: 'audio/pcm;rate=16000'
-      }
-    }
-  };
-
-  geminiWS.send(JSON.stringify(audioMessage));
-}
+};
 
 wss.on('connection', (ws) => {
   console.log('Browser connected');
@@ -127,14 +42,32 @@ wss.on('connection', (ws) => {
       setup: {
         model: `models/${MODEL_NAME}`,
         generationConfig: {
-          responseModalities: ['AUDIO']
+          responseModalities: ['AUDIO'],
         },
+        tools: [
+          {
+            functionDeclarations: [searchUserMemory]
+          }
+        ],
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [
             {
-              text: 'Give precise and to the point responses.'
+              text: `
+                You are a personal AI assistant with access to the user's personal knowledge base.
+
+                You MUST call search_user_memory whenever the user's question requires
+                information about the user's personal goals, background, skills, projects,
+                preferences, experiences, or current situation.
+
+                When user asks for any advice or guidance, consider user's data, suggest what will help based on that and also suggest what the user needs to change and what mistakes he/she's making.
+
+                you MUST call search_user_memory before answering.
+
+                For ordinary questions that do not require personal information,
+                do not call the tool.
+                `
             }
           ]
         }
