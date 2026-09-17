@@ -5,8 +5,8 @@ import PCMStreamPlayer from "./pcm-player";
 
 export default function VoiceAgent() {
   const [recording, setRecording] = useState(false);
-  // const [transcript, setTranscript] = useState("");
-  // const [partialText, setPartialText] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [response, setResponse] = useState("");
 
   const socket = useRef<WebSocket | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -19,7 +19,7 @@ export default function VoiceAgent() {
     socket.current = new WebSocket('ws://localhost:5050');
     socket.current.binaryType = 'arraybuffer';
 
-    // setTranscript("");
+    setTranscript("");
     setRecording(true);
 
     if (!player.current) {
@@ -66,19 +66,13 @@ export default function VoiceAgent() {
           return;
         }
 
-        if (message.type === "done") {
-          // setPartialText("");
-          return;
+        if (message.type === "input") {
+          setTranscript(message.text);
         }
-        // if (message.text) {
-        //   if (message.end_of_turn) {
-        //     setTranscript((prev) => (prev ? `${prev}\n${message.text}` : message.text));
-        //     setPartialText("");
-        //   } else {
-        //     setPartialText(message.text);
-        //   }
-        // }
-        // return;
+
+        if (message.type === "output") {
+          setResponse((prev) => (prev ? `${prev}\n${message.text}` : message.text));
+        }
       }
 
       if (event.data instanceof ArrayBuffer) {
@@ -125,13 +119,10 @@ export default function VoiceAgent() {
   };
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center gap-5 bg-zinc-50 font-sans dark:bg-black">
-      {/* <p>Parital text: {partialText}</p>
-      <p>Transcript: {transcript ? transcript : "No transcript available."}</p>  */}
-
+    <div className="flex flex-1 items-center justify-center lg:gap-20 lg:m-20 m-10 bg-zinc-50 font-sans dark:bg-black">
 
       <div
-        className="w-full flex flex-col items-center justify-center gap-8"
+        className="w-80 flex flex-col items-center justify-center gap-8"
       >
       <style>{`
         @keyframes pulseRing {
@@ -211,6 +202,13 @@ export default function VoiceAgent() {
         {recording ? "End Session" : "Start Session"}
       </button>
       </div>
+
+      {transcript && 
+      <div className="hidden md:block bg-gray-800 p-5 rounded-xl flex flex-col flex-1 w-60 overflow-y-auto gap-6">
+        <p><b>You:</b> {transcript}</p>  
+        <p><b>AI:</b> {response}</p>
+      </div>
+      }
     </div>
   );
 }
