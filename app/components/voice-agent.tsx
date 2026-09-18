@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import PCMStreamPlayer from "./pcm-player";
+import AudioOrbCard from "./animation/ring";
 
 export default function VoiceAgent() {
   const [recording, setRecording] = useState(false);
@@ -19,7 +20,7 @@ export default function VoiceAgent() {
     socket.current = new WebSocket('ws://localhost:5050');
     socket.current.binaryType = 'arraybuffer';
 
-    setTranscript("");
+    // setTranscript("");
     setRecording(true);
 
     if (!player.current) {
@@ -68,6 +69,7 @@ export default function VoiceAgent() {
 
         if (message.type === "input") {
           setTranscript(message.text);
+          setResponse("");
         }
 
         if (message.type === "output") {
@@ -121,91 +123,36 @@ export default function VoiceAgent() {
   return (
     <div className="flex flex-1 items-center justify-center lg:gap-20 lg:m-20 m-10 bg-zinc-50 font-sans dark:bg-black">
 
-      <div
-        className="w-80 flex flex-col items-center justify-center gap-8"
-      >
-      <style>{`
-        @keyframes pulseRing {
-          0%   { transform: scale(0.85); opacity: 0.55; }
-          70%  { transform: scale(1.55); opacity: 0; }
-          100% { transform: scale(1.55); opacity: 0; }
-        }
-        @keyframes glowBreathe {
-          0%, 100% {
-            box-shadow: 0 0 18px 3px rgba(239,68,68,0.45),
-                        0 0 40px 12px rgba(239,68,68,0.2);
-          }
-          50% {
-            box-shadow: 0 0 30px 8px rgba(239,68,68,0.75),
-                        0 0 65px 20px rgba(239,68,68,0.35);
-          }
-        }
-        .rb-ring {
-          position: absolute;
-          inset: 0;
-          border-radius: 9999px;
-          border: 2px solid rgba(248,113,113,0.7);
-          animation: pulseRing 2s cubic-bezier(0.4,0,0.6,1) infinite;
-        }
-        .rb-circle-recording {
-          animation: glowBreathe 1.6s ease-in-out infinite;
-          border-color: #f87171 !important;
-        }
-        .rb-btn {
-          transition: transform 150ms ease, filter 150ms ease, box-shadow 150ms ease;
-        }
-        .rb-btn:hover {
-          transform: scale(1.06);
-          filter: brightness(1.2);
-        }
-        .rb-btn:active {
-          transform: scale(0.94);
-        }
-      `}</style>
+      <div className="flex flex-col justify-center items-center gap-10">
+        <AudioOrbCard animate={recording} />
  
-      <div
-        style={{ width: 200, height: 200, position: "relative" }}
-        className="flex items-center justify-center"
-      >
-        {recording && (
-          <>
-            <span className="rb-ring" style={{ animationDelay: "0s" }} />
-            <span className="rb-ring" style={{ animationDelay: "0.65s" }} />
-            <span className="rb-ring" style={{ animationDelay: "1.3s" }} />
-          </>
-        )}
-        <span
-          style={{
-            width: 200,
-            height: 200,
-            borderWidth: 3,
-            borderStyle: "solid",
-            borderColor: recording ? "#f87171" : "white",
-            borderRadius: "9999px",
-            transition: "border-color 400ms ease",
-          }}
-          className={recording ? "rb-circle-recording" : ""}
-        />
-      </div>
- 
-      <button
-        className={`rb-btn border-2 font-bold py-2 px-4 rounded-xl cursor-pointer ${
-          recording ? "border-red-500 text-red-300" : "border-yellow-300 text-yellow-300"
-        }`}
-        style={{
-          boxShadow: recording
-            ? "0 0 0 rgba(239,68,68,0)"
-            : "0 0 0 rgba(253,224,71,0)",
-        }}
-        onClick={recording ? endSession : startSession}
-      >
-        {recording ? "End Session" : "Start Session"}
-      </button>
+        <button
+          onClick={recording ? endSession : startSession}
+          className={`group relative cursor-pointer overflow-hidden rounded-2xl border px-6 py-2.5 font-semibold tracking-wide backdrop-blur-md transition-all duration-300 ease-out active:scale-95 ${
+            recording
+              ? "border-red-400/50 bg-red-950/30 text-red-200 shadow-[0_0_18px_2px_rgba(248,113,113,0.35)] hover:border-red-300/70 hover:shadow-[0_0_26px_4px_rgba(248,113,113,0.55)]"
+              : "border-violet-400/50 bg-violet-950/30 text-violet-100 shadow-[0_0_18px_2px_rgba(168,85,247,0.35)] hover:border-violet-300/70 hover:shadow-[0_0_26px_4px_rgba(168,85,247,0.55)]"
+          }`}
+        >
+          <span
+            className={`pointer-events-none absolute inset-0 rounded-2xl opacity-50 blur-md transition-opacity duration-300 group-hover:opacity-70 ${
+              recording ? "bg-red-500/30" : "bg-violet-500/30"
+            }`}
+          />
+          <span className="relative flex items-center justify-center gap-2">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                recording ? "bg-red-400 animate-pulse" : "bg-violet-300"
+              }`}
+            />
+            {recording ? "End Session" : "Start Session"}
+          </span>
+        </button>
       </div>
 
       {transcript && 
-      <div className="hidden md:block bg-gray-800 p-5 rounded-xl flex flex-col flex-1 w-60 overflow-y-auto gap-6">
-        <p><b>You:</b> {transcript}</p>  
+      <div className="hidden md:block bg-purple-800/40 py-10 px-6 rounded-xl flex-1 w-60 min-h-60 overflow-y-auto">
+        <p className="mb-8"><b>You:</b> {transcript}</p>  
         <p><b>AI:</b> {response}</p>
       </div>
       }
