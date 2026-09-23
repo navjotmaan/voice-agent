@@ -3,11 +3,24 @@
 import { useState, useRef } from "react";
 import PCMStreamPlayer from "./pcm-player";
 import AudioOrbCard from "./animation/ring";
+import LoadingOrb from "./animation/loading";
+import ReactMarkdown from 'react-markdown';
+import WebSearchResult from "./web-result";
+
+export interface WebSearchResponse {
+  id: number;
+  url: string;
+  title: string;
+}
 
 export default function VoiceAgent() {
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [webSearchResult, setWebSearchResult] = useState<WebSearchResponse[]>([]);
+  const [jobSearchResult, setJobSearchResult] = useState<WebSearchResponse[]>([]);
 
   const socket = useRef<WebSocket | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -69,11 +82,22 @@ export default function VoiceAgent() {
 
         if (message.type === "input") {
           setTranscript(message.text);
+          setLoading(true);
           setResponse("");
         }
 
         if (message.type === "output") {
           setResponse((prev) => (prev ? `${prev}\n${message.text}` : message.text));
+        }
+
+        if (message.type === 'web_search_result') {
+          setWebSearchResult(message.text);
+          setLoading(false);
+        }
+
+        if (message.type === 'job_search_result') {
+          setJobSearchResult(message.text);
+          setLoading(false);
         }
       }
 
@@ -151,10 +175,17 @@ export default function VoiceAgent() {
       </div>
 
       {transcript && 
-      <div className="hidden md:block bg-purple-800/40 py-10 px-6 rounded-xl flex-1 w-60 min-h-60 overflow-y-auto">
-        <p className="mb-8"><b>You:</b> {transcript}</p>  
-        <p><b>AI:</b> {response}</p>
-      </div>
+        <div className="hidden md:block bg-purple-800/40 py-10 px-6 rounded-xl flex-1 w-60 h-[500px] overflow-y-auto">
+          <p className="mb-8"><b>You:</b> {transcript}</p> 
+          <p><b>Agent Response:</b></p>
+
+          {loading && <LoadingOrb />}
+          
+          {jobSearchResult.length > 0 && WebSearchResult(jobSearchResult)} 
+          {webSearchResult.length > 0 && WebSearchResult(webSearchResult)} 
+          
+          <ReactMarkdown>{response}</ReactMarkdown>
+        </div>
       }
     </div>
   );
