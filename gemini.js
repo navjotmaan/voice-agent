@@ -1,5 +1,9 @@
+import 'dotenv/config';
 import { createEmbedding } from "./rag/embeddings.js";
 import { searchUserMemory } from './db/query.js';
+import { tavily } from "@tavily/core";
+
+const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 export function setupGeminiListeners(geminiWS, ws) {
   geminiWS.onmessage = async (event) => {
@@ -18,7 +22,6 @@ export function setupGeminiListeners(geminiWS, ws) {
 
         if (functionCall.name === "search_user_memory") {
           const query = functionCall.args.query;
-          // console.log("RAG query:", query);
 
           const queryEmbedding = await createEmbedding(query);
 
@@ -35,6 +38,54 @@ export function setupGeminiListeners(geminiWS, ws) {
               result: context
             }
           });
+        }
+
+        if (functionCall.name === "search_web") {
+          const query = functionCall.args.query;
+
+          const searchResponse = await tvly.search(query);
+          const result = searchResponse.results.map(({ title, url, id }) => ({ title, url, id }));
+
+          functionResponses.push({
+            id: functionCall.id,
+            name: functionCall.name,
+            response: {
+              result: searchResponse.results
+            }
+          });
+
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'web_search_result',
+              text: result
+            }));
+          }
+        }
+
+        if (functionCall.name === "find_jobs") {
+          const { keywords, location, experience } = functionCall.args;
+
+          const query = `${keywords} jobs ${experience} ${location}`;
+
+          console.log("Job search query:", query);
+
+          const searchResponse = await tvly.search(query);
+          const result = searchResponse.results.map(({ title, url, id }) => ({ title, url, id }));
+
+          functionResponses.push({
+            id: functionCall.id,
+            name: functionCall.name,
+            response: {
+              result: searchResponse.results
+            }
+          });
+
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'job_search_result',
+              text: result
+            }));
+          }
         }
       }
 
