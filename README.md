@@ -1,11 +1,15 @@
 # AI Voice Agent
 A personal AI voice agent that uses the user's personal data to provide context-aware and personalized answers.
 
+## Demo
+https://github.com/user-attachments/assets/b99d61d9-8618-429a-b81b-22e5610a63b3
+
 ## Technology/Tools
 - **Gemini Live API** — speech-to-speech interaction with built-in VAD and barge-in
 - **PostgreSQL + pgvector** — stores embeddings and performs vector similarity search
 - **RAG pipeline** — retrieves relevant information from the user's personal data
 - **Gemini embedding model** — generates embeddings for user data and search queries
+- **Tavily** - for web search
 
 ## How it works
 Most of the voice interaction is handled by the Gemini Live API.
@@ -13,7 +17,7 @@ Most of the voice interaction is handled by the Gemini Live API.
 - **Speech-to-speech:** The user speaks to Gemini, which handles speech recognition, reasoning, and generating the voice response.
 - **Voice Activity Detection (VAD):** Gemini detects when the user is speaking and when it should respond.
 - **Barge-in:** If the user interrupts Gemini while it is responding, Gemini stops the current response and listens to the user.
-- **Function calling:** When Gemini needs information from the user's personal data, it calls the `search_user_memory` function.
+- **Function calling:** Gemini calls specific functions when needed like web search or when needs user's personal data.
 - **Embeddings:** The Gemini embedding model is used to create vector embeddings for the user's data and search queries.
 
 ## RAG Flow
@@ -43,6 +47,7 @@ So, the flow is:
 - Node 18+
 - PostgreSQL with the `pgvector` extension
 - Gemini API key
+- Tavily API key
 
 Clone the repository and install dependencies:
 
