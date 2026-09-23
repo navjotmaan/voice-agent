@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { WebSocketServer, WebSocket } from 'ws';
 import { setupGeminiListeners, sendAudioChunk } from './gemini.js';
+import { searchUserMemory, searchWeb, findJobs } from './function-declaration.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const MODEL_NAME = 'gemini-3.1-flash-live-preview';
@@ -11,24 +12,6 @@ const WS_URL =
   `?key=${GEMINI_API_KEY}`;
 
 const wss = new WebSocketServer({ port: 5050 });
-
-// Define a function declaration
-const searchUserMemory = {
-  name: "search_user_memory",
-  description:
-    "Search the user's personal knowledge base for information about their goals, skills, projects, preferences, experiences, and other personal context. Use this whenever answering a question that requires specific knowledge about the user.",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      query: {
-        type: "STRING",
-        description:
-          "A concise semantic search query describing the information needed from the user's memory."
-      }
-    },
-    required: ["query"]
-  }
-};
 
 wss.on('connection', (ws) => {
   console.log('Browser connected');
@@ -46,7 +29,11 @@ wss.on('connection', (ws) => {
         },
         tools: [
           {
-            functionDeclarations: [searchUserMemory]
+            functionDeclarations: [
+              searchUserMemory, 
+              searchWeb, 
+              findJobs
+            ]
           }
         ],
         inputAudioTranscription: {},
@@ -61,7 +48,11 @@ wss.on('connection', (ws) => {
                 information about the user's personal goals, background, skills, projects,
                 preferences, experiences, or current situation.
 
-                When user asks for any advice or guidance, consider user's data, suggest what will help based on that and also suggest what the user needs to change and what mistakes he/she's making.
+                You MUST call search_web whenever user asks to search anything from the web.
+
+                You MUST call find_jobs whenever user asks to find jobs and companies.
+
+                When user asks for any advice or guidance, consider user's data, suggest what will help based on  that and also suggest what the user needs to change and what mistakes he/she's making.
 
                 you MUST call search_user_memory before answering.
 
