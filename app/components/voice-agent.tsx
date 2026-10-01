@@ -88,6 +88,7 @@ export default function VoiceAgent() {
 
         if (message.type === "output") {
           setResponse((prev) => (prev ? `${prev}\n${message.text}` : message.text));
+          setLoading(false);
         }
 
         if (message.type === 'web_search_result') {
