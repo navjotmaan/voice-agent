@@ -30,7 +30,7 @@ export default function VoiceAgent() {
   const player = useRef<PCMStreamPlayer | null>(null);
 
   async function startSession() {
-    socket.current = new WebSocket('ws://localhost:5050');
+    socket.current = new WebSocket('ws://localhost:8000/ws');
     socket.current.binaryType = 'arraybuffer';
 
     // setTranscript("");
