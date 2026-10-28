@@ -84,6 +84,8 @@ export default function VoiceAgent() {
           setTranscript(message.text);
           setLoading(true);
           setResponse("");
+          setWebSearchResult([]);
+          setJobSearchResult([]);
         }
 
         if (message.type === "output") {
