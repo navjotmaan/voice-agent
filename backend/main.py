@@ -22,14 +22,39 @@ WS_URL = (
     f"?key={GEMINI_API_KEY}"
 )
 
+knowledge_base_function = {
+    "type": "function",
+    "name": "search_knowledge_base",
+    "description":
+        "Searches the knowledge base before answering.",
+    "parameters": {
+        "type": "OBJECT",
+        "properties": {
+        "query": {
+            "type": "STRING",
+            "description":
+            "A concise semantic search query describing the information needed from the knowledge base."
+        }
+        },
+        "required": ["query"]
+    }
+}
+
+SYSTEM_PROMPT = """
+You are an AI assistant with access to a knowledge base.
+
+You MUST call search_knowledge_base function before answering. And if the related context doesn't exist in the knowledge base, you have to reply saying you don't know.
+"""
+
 def build_setup_message() -> dict:
     return {
         "setup": {
             "model": f"models/{MODEL_NAME}",
             "generationConfig": {"responseModalities": ["AUDIO"]},
+            "tools": [{"functionDeclarations": knowledge_base_function}],
             "inputAudioTranscription": {},
             "outputAudioTranscription": {},
-            "systemInstruction": {"parts": [{"text": "You are a helpful assistant."}]},
+            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         }
     }
 
