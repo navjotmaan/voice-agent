@@ -49,18 +49,23 @@ So, the flow is:
 - Gemini API key
 - Tavily API key
 
-Clone the repository and install dependencies:
-
+Clone the repository:
 ```bash
 git clone git@github.com:navjotmaan/voice-agent.git
-cd voice-agent
-npm install
 ```
 
 Make sure you're on the `gemini-live` branch:
-
 ```bash
 git switch gemini-live
+```
+
+Install dependencies in both directories:
+```
+cd client
+npm install
+
+cd server
+npm install
 ```
 
 ## Configuration
@@ -93,10 +98,12 @@ node rag/ingest.js
 
 Start the Next.js application:
 ```bash
+cd client
 npm run dev
 ```
 Then, in another terminal tab, start the voice server:
 ```bash
-node server.js
+cd server
+npm run dev
 ```
 Open the application in your browser and start a voice conversation.
