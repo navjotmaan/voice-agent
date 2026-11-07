@@ -23,7 +23,6 @@ WS_URL = (
 )
 
 knowledge_base_function = {
-    "type": "function",
     "name": "search_knowledge_base",
     "description":
         "Searches the knowledge base before answering.",
