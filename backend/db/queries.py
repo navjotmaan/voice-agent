@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, select
 
 from db.models import User, Document, Chunk
-import embeddings
+import services.embeddings as embeddings
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -42,11 +42,14 @@ def search_knowledge_base(question, k=5):
     distance = Chunk.embedding.cosine_distance(q_emb)
     stmt = (
         select(Chunk, distance.label("distance"))
-        .where(Chunk.user_id == 4)
+        .where(Chunk.user_id == 5)
         .order_by(distance)
         .limit(k)
     )
 
     with Session(engine) as session:
         rows = session.execute(stmt).all()
+        # for chunk, dist in rows:
+        #     print(f"returned chunk (distance {dist:.3f}): {chunk.chunk}")
+        
         return [(chunk.chunk, dist) for chunk, dist in rows]
