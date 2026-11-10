@@ -92,7 +92,7 @@ export const AudioOrb: React.FC<AudioOrbProps> = ({
 
       {/* ambient background wash */}
       <div
-        className="absolute inset-0 rounded-full bg-purple-600/40 blur-3xl"
+        className="absolute inset-0 rounded-full blur-3xl"
         style={animate ? { animation: "orb-breathe 5s ease-in-out infinite" } : undefined}
       />
 
@@ -206,10 +206,10 @@ const particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
 const AudioOrbCard: React.FC<{ className?: string, animate: boolean }> = ({ className = "", animate }) => {
   return (
     <div
-      className={`relative flex h-full min-h-[300px] w-full items-center justify-center overflow-hidden rounded-[50%] bg-[#0a0714] ${className}`}
+      className={`relative flex h-full min-h-[300px] w-full items-center justify-center overflow-hidden rounded-[50%] ${className}`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(181, 116, 237, 0.25),transparent_60%)]" />
-      <AudioOrb size={300} animate={animate} />
+      <AudioOrb animate={animate} />
     </div>
   );
 };
